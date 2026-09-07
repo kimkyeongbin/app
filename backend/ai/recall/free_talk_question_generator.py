@@ -10,7 +10,7 @@ except ImportError:
 
 
 YNU_BASE_URL = "https://factchat-cloud.mindlogic.ai/v1/gateway"
-GPT_MODEL = "claude-sonnet-4-6"
+GPT_MODEL = "claude-sonnet-5"
 
 _client: Any = None
 

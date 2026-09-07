@@ -17,7 +17,7 @@ MEMORY_POINT_SEMANTIC_SIMILARITY_THRESHOLD = 70.0
 
 logger = logging.getLogger(__name__)
 YNU_BASE_URL = "https://factchat-cloud.mindlogic.ai/v1/gateway"
-GPT_MODEL = "claude-sonnet-4-6"
+GPT_MODEL = "claude-sonnet-5"
 BASE_URL = "http://localhost:8080"
 MIN_RECALL_MEMORY_CANDIDATES = 2
 RECENT_RECALL_HISTORY_LIMIT = 12
