@@ -4,6 +4,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
 
@@ -50,12 +51,25 @@ object RetrofitClient {
             .build()
     }
 
+    internal fun voiceClient(base: OkHttpClient): OkHttpClient = base.newBuilder()
+        .eventListenerFactory { VoiceNetworkTiming() }
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
+        .callTimeout(90, TimeUnit.SECONDS)
+        // Uploads create records; do not replay them after an uncertain connection failure.
+        .retryOnConnectionFailure(false)
+        .build()
+
     val instance: AuthApiService by lazy {
         retrofit.create(AuthApiService::class.java)
     }
 
     val voiceChat: VoiceChatApiService by lazy {
-        retrofit.create(VoiceChatApiService::class.java)
+        retrofit.newBuilder()
+            .client(voiceClient(client))
+            .build()
+            .create(VoiceChatApiService::class.java)
     }
 
     val location: LocationApiService by lazy {

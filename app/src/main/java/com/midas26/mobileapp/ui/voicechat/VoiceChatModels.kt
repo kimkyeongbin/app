@@ -14,6 +14,7 @@ import com.midas26.mobileapp.util.WavRecorder
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -191,22 +192,13 @@ class VoiceChatViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /** 업로드 완료 후 AI 답변이 올 때까지 2초 간격으로 폴링. 30초 타임아웃. */
+    /** Query immediately; enforce a deadline even when an individual request stalls. */
     private suspend fun pollForReply(recordId: Long) {
-        val timeoutMs  = 30_000L
-        val intervalMs =  2_000L
-        val startTime  = System.currentTimeMillis()
-
-        while (System.currentTimeMillis() - startTime < timeoutMs) {
-            delay(intervalMs)
-            val replyText = runCatching { api.pollReply(recordId) }
-                .getOrNull()?.body()?.data?.replyText
-
-            if (!replyText.isNullOrBlank()) {
-                refreshPendingRecallQuestion(recordId)
-                dispatchAiReply(replyText)
-                return
-            }
+        val replyText = awaitReply { api.pollReply(recordId).body()?.data?.replyText }
+        if (!replyText.isNullOrBlank()) {
+            withTimeoutOrNull(3_000) { refreshPendingRecallQuestion(recordId) }
+            dispatchAiReply(replyText)
+            return
         }
         dispatchAiReply("답변을 받아오지 못했어요. 잠시 후 다시 시도해주세요.")
     }
@@ -305,8 +297,13 @@ class VoiceChatViewModel(application: Application) : AndroidViewModel(applicatio
     fun endSession() {
         if (sessionId <= 0 || sessionEnded) return
         sessionEnded = true
-        viewModelScope.launch {
-            runCatching { api.completeSession(sessionId) }
+        val endingSessionId = sessionId
+        finishVoiceSession(viewModelScope, onFailure = {
+            android.util.Log.w("VoiceSession", "completion failed session=$endingSessionId type=${it.javaClass.simpleName}")
+        }) {
+            val response = api.completeSession(endingSessionId)
+            check(response.isSuccessful) { "Completion HTTP ${response.code()}" }
+            android.util.Log.i("VoiceSession", "completion accepted session=$endingSessionId")
         }
     }
 
